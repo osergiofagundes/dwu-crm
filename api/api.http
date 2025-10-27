@@ -1,0 +1,178 @@
+### API CRM - Testes de Endpoints
+
+@baseUrl = https://localhost:5001
+@clienteId = {{criarCliente.response.body.id}}
+@oportunidadeId = {{criarOportunidade.response.body.id}}
+
+### ==================== CLIENTES ====================
+
+### GET - Listar todos os clientes (com paginação)
+GET {{baseUrl}}/clientes?pagina=1&tamanhoPagina=10
+
+### GET - Listar clientes com busca
+GET {{baseUrl}}/clientes?busca=João
+
+### GET - Buscar cliente por ID
+GET {{baseUrl}}/clientes/{{clienteId}}
+
+### POST - Criar novo cliente
+# @name criarCliente
+POST {{baseUrl}}/clientes
+Content-Type: application/json
+
+{
+  "nome": "João Silva",
+  "email": "joao.silva@email.com",
+  "telefone": "(11) 98765-4321",
+  "empresa": "Tech Solutions Ltda"
+}
+
+### POST - Criar outro cliente
+POST {{baseUrl}}/clientes
+Content-Type: application/json
+
+{
+  "nome": "Maria Santos",
+  "email": "maria.santos@email.com",
+  "telefone": "(21) 99876-5432",
+  "empresa": "Inovação Digital"
+}
+
+### PUT - Atualizar cliente
+PUT {{baseUrl}}/clientes/{{clienteId}}
+Content-Type: application/json
+
+{
+  "nome": "João Silva Atualizado",
+  "email": "joao.silva@email.com",
+  "telefone": "(11) 98765-4321",
+  "empresa": "Tech Solutions S.A."
+}
+
+### DELETE - Excluir cliente
+DELETE {{baseUrl}}/clientes/{{clienteId}}
+
+### ==================== OPORTUNIDADES ====================
+
+### GET - Listar todas as oportunidades (com paginação)
+GET {{baseUrl}}/oportunidades?pagina=1&tamanhoPagina=10
+
+### GET - Filtrar oportunidades por cliente
+GET {{baseUrl}}/oportunidades?clienteId={{clienteId}}
+
+### GET - Filtrar oportunidades por estágio
+GET {{baseUrl}}/oportunidades?estagio=Prospeccao
+
+### GET - Buscar oportunidade por ID
+GET {{baseUrl}}/oportunidades/{{oportunidadeId}}
+
+### POST - Criar nova oportunidade
+# @name criarOportunidade
+POST {{baseUrl}}/oportunidades
+Content-Type: application/json
+
+{
+  "titulo": "Implementação de Sistema CRM",
+  "valor": 50000.00,
+  "probabilidade": 75,
+  "estagio": "Proposta",
+  "dataFechamentoPrevista": "2025-12-31",
+  "clienteId": "{{clienteId}}"
+}
+
+### POST - Criar oportunidade em Prospecção
+POST {{baseUrl}}/oportunidades
+Content-Type: application/json
+
+{
+  "titulo": "Consultoria em Cloud",
+  "valor": 25000.00,
+  "probabilidade": 40,
+  "estagio": "Prospeccao",
+  "dataFechamentoPrevista": "2025-11-30",
+  "clienteId": "{{clienteId}}"
+}
+
+### POST - Criar oportunidade Fechada Ganha
+POST {{baseUrl}}/oportunidades
+Content-Type: application/json
+
+{
+  "titulo": "Desenvolvimento de App Mobile",
+  "valor": 80000.00,
+  "probabilidade": 100,
+  "estagio": "FechadoGanho",
+  "dataFechamentoPrevista": "2025-10-25",
+  "clienteId": "{{clienteId}}"
+}
+
+### PUT - Atualizar oportunidade
+PUT {{baseUrl}}/oportunidades/{{oportunidadeId}}
+Content-Type: application/json
+
+{
+  "titulo": "Implementação de Sistema CRM - Fase 2",
+  "valor": 75000.00,
+  "probabilidade": 90,
+  "estagio": "Negociacao",
+  "dataFechamentoPrevista": "2025-12-31",
+  "clienteId": "{{clienteId}}"
+}
+
+### DELETE - Excluir oportunidade
+DELETE {{baseUrl}}/oportunidades/{{oportunidadeId}}
+
+### ==================== RELATÓRIOS ====================
+
+### GET - Relatório de oportunidades
+GET {{baseUrl}}/oportunidades/relatorio
+
+### ==================== TESTES DE VALIDAÇÃO ====================
+
+### POST - Criar cliente com email inválido (deve falhar)
+POST {{baseUrl}}/clientes
+Content-Type: application/json
+
+{
+  "nome": "Teste",
+  "email": "email-invalido",
+  "telefone": "(11) 98765-4321"
+}
+
+### POST - Criar cliente sem nome (deve falhar)
+POST {{baseUrl}}/clientes
+Content-Type: application/json
+
+{
+  "email": "teste@email.com",
+  "telefone": "(11) 98765-4321"
+}
+
+### POST - Criar oportunidade com probabilidade inválida (deve falhar)
+POST {{baseUrl}}/oportunidades
+Content-Type: application/json
+
+{
+  "titulo": "Teste",
+  "valor": 1000.00,
+  "probabilidade": 150,
+  "estagio": "Prospeccao",
+  "clienteId": "{{clienteId}}"
+}
+
+### POST - Criar oportunidade com cliente inexistente (deve falhar)
+POST {{baseUrl}}/oportunidades
+Content-Type: application/json
+
+{
+  "titulo": "Teste",
+  "valor": 1000.00,
+  "probabilidade": 50,
+  "estagio": "Prospeccao",
+  "clienteId": "00000000-0000-0000-0000-000000000000"
+}
+
+### ==================== TESTE DE INTEGRIDADE ====================
+
+### GET - Teste de saúde da API
+GET {{baseUrl}}/
