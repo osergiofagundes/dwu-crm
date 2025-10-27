@@ -6,10 +6,13 @@ import {
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
+  DragOverEvent,
   PointerSensor,
   useSensor,
   useSensors,
+  closestCenter,
 } from '@dnd-kit/core';
+import { arrayMove } from '@dnd-kit/sortable';
 import { oportunidadeService } from '@/lib/oportunidadeService';
 import {
   Oportunidade,
@@ -66,32 +69,105 @@ export default function KanbanPage() {
     if (!over) return;
 
     const oportunidadeId = active.id as string;
-    const novoEstagio = parseInt(over.id as string) as EstagioOportunidade;
-
     const oportunidade = oportunidades.find((o) => o.id === oportunidadeId);
     if (!oportunidade) return;
 
-    // Se o estágio não mudou, não faz nada
-    if (oportunidade.estagio === novoEstagio) return;
+    // Determinar o estágio de destino
+    // over.id pode ser o ID de uma oportunidade (sortable) ou o ID de um estágio (droppable)
+    const overItem = oportunidades.find((o) => o.id === over.id);
+    const novoEstagio = overItem 
+      ? overItem.estagio 
+      : (parseInt(over.id as string) as EstagioOportunidade);
 
-    // Atualiza localmente primeiro (otimistic update)
-    setOportunidades((prev) =>
-      prev.map((o) =>
-        o.id === oportunidadeId ? { ...o, estagio: novoEstagio } : o
-      )
-    );
+    const estagioAnterior = oportunidade.estagio;
+    
+    // Se está movendo dentro do mesmo estágio
+    if (estagioAnterior === novoEstagio && active.id !== over.id) {
+      // Reordenar localmente
+      const oportunidadesDoEstagio = oportunidades
+        .filter((o) => o.estagio === novoEstagio)
+        .sort((a, b) => a.ordem - b.ordem);
+      
+      const oldIndex = oportunidadesDoEstagio.findIndex((o) => o.id === active.id);
+      const newIndex = oportunidadesDoEstagio.findIndex((o) => o.id === over.id);
+      
+      if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+        const reordered = arrayMove(oportunidadesDoEstagio, oldIndex, newIndex);
+        
+        // Atualizar ordens localmente
+        const updatedOportunidades = oportunidades.map((o) => {
+          if (o.estagio === novoEstagio) {
+            const newOrderIndex = reordered.findIndex((ro) => ro.id === o.id);
+            return { ...o, ordem: newOrderIndex };
+          }
+          return o;
+        });
+        
+        setOportunidades(updatedOportunidades);
+        
+        // Atualizar no backend com a nova ordem
+        try {
+          await oportunidadeService.atualizarEstagio(oportunidadeId, {
+            estagio: novoEstagio,
+            ordem: newIndex,
+          });
+        } catch (err) {
+          const errorMessage =
+            err instanceof ApiError ? err.message : 'Erro ao reordenar oportunidade';
+          alert(errorMessage);
+          await fetchOportunidades();
+        }
+      }
+      return;
+    }
 
-    // Atualiza no backend
-    try {
-      await oportunidadeService.atualizarEstagio(oportunidadeId, {
-        estagio: novoEstagio,
-      });
-    } catch (err) {
-      const errorMessage =
-        err instanceof ApiError ? err.message : 'Erro ao atualizar oportunidade';
-      alert(errorMessage);
-      // Reverte a mudança em caso de erro
-      await fetchOportunidades();
+    // Se o estágio mudou
+    if (estagioAnterior !== novoEstagio) {
+      const oportunidadesDestinoAtuais = oportunidades
+        .filter((o) => o.estagio === novoEstagio)
+        .sort((a, b) => a.ordem - b.ordem);
+      
+      // Determinar a posição no novo estágio
+      let novaOrdem = 0;
+      if (overItem) {
+        // Soltou em cima de outro card
+        novaOrdem = overItem.ordem;
+      } else {
+        // Soltou na área vazia da coluna (no final)
+        novaOrdem = oportunidadesDestinoAtuais.length > 0
+          ? Math.max(...oportunidadesDestinoAtuais.map(o => o.ordem)) + 1
+          : 0;
+      }
+      
+      // Atualiza localmente primeiro (otimistic update)
+      setOportunidades((prev) =>
+        prev.map((o) => {
+          if (o.id === oportunidadeId) {
+            return { ...o, estagio: novoEstagio, ordem: novaOrdem };
+          }
+          // Atualizar ordens das outras oportunidades no estágio de destino
+          if (o.estagio === novoEstagio && o.ordem >= novaOrdem) {
+            return { ...o, ordem: o.ordem + 1 };
+          }
+          return o;
+        })
+      );
+
+      // Atualiza no backend
+      try {
+        await oportunidadeService.atualizarEstagio(oportunidadeId, {
+          estagio: novoEstagio,
+          ordem: novaOrdem,
+        });
+        // Recarrega para ter certeza que as ordens estão corretas
+        await fetchOportunidades();
+      } catch (err) {
+        const errorMessage =
+          err instanceof ApiError ? err.message : 'Erro ao atualizar oportunidade';
+        alert(errorMessage);
+        // Reverte a mudança em caso de erro
+        await fetchOportunidades();
+      }
     }
   };
 
@@ -132,6 +208,7 @@ export default function KanbanPage() {
       <div className="space-y-6">
         <DndContext
           sensors={sensors}
+          collisionDetection={closestCenter}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >

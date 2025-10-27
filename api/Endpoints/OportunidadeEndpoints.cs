@@ -444,25 +444,93 @@ public static class OportunidadeEndpoints
                 }
 
                 var estagioAnterior = oportunidade.Estagio;
-                oportunidade.Estagio = request.Estagio;
+                var ordemAnterior = oportunidade.Ordem;
 
-                if (request.Ordem.HasValue)
+                // Se mudou de estágio
+                if (estagioAnterior != request.Estagio)
                 {
-                    oportunidade.Ordem = request.Ordem.Value;
+                    // Ajustar ordens no estágio anterior (remover gaps)
+                    var oportunidadesEstagioAnterior = await db.Oportunidades
+                        .Where(o => o.Estagio == estagioAnterior && o.Id != id && o.Ordem > ordemAnterior)
+                        .ToListAsync();
+                    
+                    foreach (var op in oportunidadesEstagioAnterior)
+                    {
+                        op.Ordem--;
+                    }
+
+                    // Inserir na posição correta no novo estágio
+                    int novaOrdem;
+                    if (request.Ordem.HasValue)
+                    {
+                        novaOrdem = request.Ordem.Value;
+                        
+                        // Abrir espaço na nova posição
+                        var oportunidadesDestino = await db.Oportunidades
+                            .Where(o => o.Estagio == request.Estagio && o.Ordem >= novaOrdem)
+                            .ToListAsync();
+                        
+                        foreach (var op in oportunidadesDestino)
+                        {
+                            op.Ordem++;
+                        }
+                    }
+                    else
+                    {
+                        // Se não especificou ordem, coloca no final
+                        var ultimaOrdem = await db.Oportunidades
+                            .Where(o => o.Estagio == request.Estagio)
+                            .MaxAsync(o => (int?)o.Ordem) ?? -1;
+                        novaOrdem = ultimaOrdem + 1;
+                    }
+
+                    oportunidade.Estagio = request.Estagio;
+                    oportunidade.Ordem = novaOrdem;
                 }
-                else
+                // Se mudou apenas a ordem dentro do mesmo estágio
+                else if (request.Ordem.HasValue && request.Ordem.Value != ordemAnterior)
                 {
-                    var ultimaOrdem = await db.Oportunidades
-                        .Where(o => o.Estagio == request.Estagio && o.Id != id)
-                        .MaxAsync(o => (int?)o.Ordem) ?? -1;
-
-                    oportunidade.Ordem = ultimaOrdem + 1;
+                    var novaOrdem = request.Ordem.Value;
+                    
+                    // Reordenar as outras oportunidades
+                    if (novaOrdem < ordemAnterior)
+                    {
+                        // Movendo para cima: aumentar ordem dos itens entre nova e antiga posição
+                        var oportunidadesParaAjustar = await db.Oportunidades
+                            .Where(o => o.Estagio == request.Estagio && 
+                                       o.Id != id && 
+                                       o.Ordem >= novaOrdem && 
+                                       o.Ordem < ordemAnterior)
+                            .ToListAsync();
+                        
+                        foreach (var op in oportunidadesParaAjustar)
+                        {
+                            op.Ordem++;
+                        }
+                    }
+                    else
+                    {
+                        // Movendo para baixo: diminuir ordem dos itens entre antiga e nova posição
+                        var oportunidadesParaAjustar = await db.Oportunidades
+                            .Where(o => o.Estagio == request.Estagio && 
+                                       o.Id != id && 
+                                       o.Ordem > ordemAnterior && 
+                                       o.Ordem <= novaOrdem)
+                            .ToListAsync();
+                        
+                        foreach (var op in oportunidadesParaAjustar)
+                        {
+                            op.Ordem--;
+                        }
+                    }
+                    
+                    oportunidade.Ordem = novaOrdem;
                 }
 
                 await db.SaveChangesAsync();
 
-                logger.LogInformation("Estágio da oportunidade atualizado. ID: {OportunidadeId}, EstagioAnterior: {EstagioAnterior}, NovoEstagio: {NovoEstagio}, Ordem: {Ordem}",
-                    oportunidade.Id, estagioAnterior, oportunidade.Estagio, oportunidade.Ordem);
+                logger.LogInformation("Estágio da oportunidade atualizado. ID: {OportunidadeId}, EstagioAnterior: {EstagioAnterior}, NovoEstagio: {NovoEstagio}, OrdemAnterior: {OrdemAnterior}, NovaOrdem: {NovaOrdem}",
+                    oportunidade.Id, estagioAnterior, oportunidade.Estagio, ordemAnterior, oportunidade.Ordem);
 
                 return Results.Ok(oportunidade);
             }
