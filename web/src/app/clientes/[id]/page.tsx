@@ -90,10 +90,10 @@ export default function ClienteDetailPage() {
             <p className="text-gray-900">Email: {cliente.email}</p>
           </div>
           <div>
-            <p className="text-gray-900">Telefone: {cliente.telefone || '-'}</p>
+            <p className="text-gray-900">Telefone: {cliente.telefone || 'Não informado'}</p>
           </div>
           <div>
-            <p className="text-gray-900">Empresa: {cliente.empresa || '-'}</p>
+            <p className="text-gray-900">Empresa: {cliente.empresa || 'Não informada'}</p>
           </div>
           <div>
             <p className="text-gray-900">Cadastrado em: {formatDate(cliente.criadoEm)}</p>
@@ -102,7 +102,7 @@ export default function ClienteDetailPage() {
       </div>
 
       {/* Oportunidades */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div>
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Oportunidades</h1>
@@ -110,7 +110,7 @@ export default function ClienteDetailPage() {
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="bg-white rounded-lg shadow overflow-hidden overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
