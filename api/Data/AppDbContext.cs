@@ -25,5 +25,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<Oportunidade>()
             .Property(o => o.Estagio)
             .HasConversion<string>();
+
+        // Seed Data
+        DatabaseSeeder.SeedData(modelBuilder);
     }
 }
